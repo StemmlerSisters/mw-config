@@ -1,12 +1,12 @@
 <?php
 
+use MediaWiki\Extension\EventBus\Adapters\Monolog\EventBusMonologHandler;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Logger\Monolog\BufferHandler;
 use MediaWiki\Logger\Monolog\LogstashFormatter;
 use MediaWiki\Logger\Monolog\SyslogHandler;
 use MediaWiki\Logger\Monolog\WikiProcessor;
 use MediaWiki\Logger\MonologSpi;
-use Monolog\Handler\NullHandler;
 use Monolog\Handler\SamplingHandler;
 use Monolog\Handler\WhatFailureGroupHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
@@ -37,11 +37,7 @@ $wmgMonologProcessors = [
 	],
 ];
 
-$wmgMonologHandlers = [
-	'blackhole' => [
-		'class' => NullHandler::class,
-	],
-];
+$wmgMonologHandlers = [];
 
 foreach ( [ 'debug', 'info', 'warning', 'error' ] as $logLevel ) {
 	$wmgMonologHandlers[ "graylog-$logLevel" ] = [
@@ -102,7 +98,7 @@ foreach ( $wmgMonologChannels as $channel => $opts ) {
 	if ( $opts === false ) {
 		// Log channel disabled on this wiki
 		$wmgMonologConfig['loggers'][$channel] = [
-			'handlers' => [ 'blackhole' ],
+			'handlers' => [],
 			'calls' => $wmgMonologLoggerCalls,
 		];
 		continue;
@@ -112,6 +108,7 @@ foreach ( $wmgMonologChannels as $channel => $opts ) {
 	$opts = array_merge(
 		[
 			'graylog' => 'debug',
+			'eventbus' => false,
 			'buffer' => false,
 			'sample' => false,
 		],
@@ -120,7 +117,22 @@ foreach ( $wmgMonologChannels as $channel => $opts ) {
 
 	$handlers = [];
 
-	// Configure Logstash handler
+	if ( $opts['eventbus'] ) {
+		$eventBusHandler = "eventbus-{$opts['eventbus']}";
+		if ( !isset( $wmgMonologConfig['handlers'][$eventBusHandler] ) ) {
+			// Register handler that will only pass events of the given log level
+			$wmgMonologConfig['handlers'][$eventBusHandler] = [
+				'class' => EventBusMonologHandler::class,
+				'args' => [
+					// EventServiceName
+					'eventgate',
+				]
+			];
+		}
+		$handlers[] = $eventBusHandler;
+	}
+
+	// Configure Graylog handler
 	if ( $opts['graylog'] ) {
 		$level = $opts['graylog'];
 		$graylogHandler = "graylog-{$level}";
@@ -198,19 +210,8 @@ foreach ( $wmgMonologChannels as $channel => $opts ) {
 			'calls' => $wmgMonologLoggerCalls,
 		];
 
-	} else {
-		// No handlers configured, so use the blackhole route
-		$wmgMonologConfig['loggers'][$channel] = [
-			'handlers' => [ 'blackhole' ],
-			'calls' => $wmgMonologLoggerCalls,
-		];
 	}
 }
-
-$wgMWLoggerDefaultSpi = [
-	'class' => MonologSpi::class,
-	'args' => [ $wmgMonologConfig ],
-];
 
 if ( $wmgLogToDisk ) {
 	$wmgLogDir = '/var/log/mediawiki';
@@ -243,12 +244,27 @@ if ( $wmgLogToDisk ) {
 		'thumbnail' => "$wmgLogDir/debuglogs/thumbnail.log",
 		'VisualEditor' => "$wmgLogDir/debuglogs/VisualEditor.log",
 	];
+} else {
+	$wgMWLoggerDefaultSpi = [
+		'class' => MonologSpi::class,
+		'args' => [ $wmgMonologConfig ],
+	];
 }
 
-if ( $wgCommandLineMode ) {
+if ( MW_ENTRY_POINT === 'cli' ) {
 	ini_set( 'display_startup_errors', 1 );
 	ini_set( 'display_errors', 1 );
 
 	$wgShowExceptionDetails = true;
 	$wgDebugDumpSql = true;
+}
+
+if (
+	wfHostname() === 'mwtask151' ||
+	wfHostname() === 'mwtask161' ||
+	wfHostname() === 'mwtask171' ||
+	wfHostname() === 'mwtask181' ||
+	wfHostname() === 'test151'
+) {
+	$wgShowExceptionDetails = true;
 }

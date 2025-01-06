@@ -1,94 +1,108 @@
 <?php
 
-$scsvg = [ 'mw131', 'mw132', 'mw133', 'mw134', 'mw141', 'mw142', 'mw143', 'mwtask141', 'mwtask181' ];
-if ( in_array( wfHostname(), $scsvg ) ) {
-	$wmgDB101Hostname = 'db101.miraheze.org';
-	$wmgDB121Hostname = 'db121.miraheze.org';
-	$wmgDB131Hostname = 'db131.miraheze.org';
-	$wmgDB142Hostname = 'db142.miraheze.org';
-	$wmgDBUseSSL = true;
+if ( strpos( wfHostname(), 'test' ) === 0 ) {
+	// Mirabeta database configuration
+	$wgLBFactoryConf = [
+		'class' => \Wikimedia\Rdbms\LBFactoryMulti::class,
+		'secret' => $wgSecretKey,
+		'sectionsByDB' => $wi->wikiDBClusters,
+		'sectionLoads' => [
+			'DEFAULT' => [
+				'db172' => 0,
+			],
+			'c1' => [
+				'db172' => 0,
+			],
+		],
+		'serverTemplate' => [
+			'dbname' => $wgDBname,
+			'user' => $wgDBuser,
+			'password' => $wgDBpassword,
+			'type' => 'mysql',
+			'flags' => DBO_DEFAULT | ( MW_ENTRY_POINT === 'cli' ? DBO_DEBUG : 0 ),
+			'variables' => [
+				// https://mariadb.com/docs/reference/mdb/system-variables/innodb_lock_wait_timeout
+				'innodb_lock_wait_timeout' => 15,
+			],
+		],
+		'hostsByName' => [
+			'db172' => '10.0.17.158',
+		],
+		'externalLoads' => [
+			'beta' => [
+				/** where the metawikibeta database is located */
+				'db172' => 0,
+			],
+		],
+		'readOnlyBySection' => [
+			// 'DEFAULT' => 'Maintenance is in progress. Please try again in a few minutes.',
+			// 'c1' => 'Maintenance is in progress. Please try again in a few minutes.',
+		],
+	];
 } else {
-	$wmgDB101Hostname = 'db151.wikitide.net';
-	$wmgDB121Hostname = 'db161.wikitide.net';
-	$wmgDB131Hostname = 'db171.wikitide.net';
-	$wmgDB142Hostname = 'db181.wikitide.net';
-	$wmgDBUseSSL = false;
+	// Production database configuration
+	$wgLBFactoryConf = [
+		'class' => \Wikimedia\Rdbms\LBFactoryMulti::class,
+		'secret' => $wgSecretKey,
+		'sectionsByDB' => $wi->wikiDBClusters,
+		'sectionLoads' => [
+			'DEFAULT' => [
+				'db171' => 0,
+			],
+			'c1' => [
+				'db151' => 0,
+			],
+			'c2' => [
+				'db161' => 0,
+			],
+			'c3' => [
+				'db171' => 0,
+			],
+			'c4' => [
+				'db181' => 0,
+			],
+		],
+		'serverTemplate' => [
+			'dbname' => $wgDBname,
+			'user' => $wgDBuser,
+			'password' => $wgDBpassword,
+			'type' => 'mysql',
+			'flags' => DBO_DEFAULT | ( MW_ENTRY_POINT === 'cli' ? DBO_DEBUG : 0 ),
+			'variables' => [
+				// https://mariadb.com/docs/reference/mdb/system-variables/innodb_lock_wait_timeout
+				'innodb_lock_wait_timeout' => 120,
+			],
+		],
+		'hostsByName' => [
+			'db151' => '10.0.15.110',
+			'db161' => '10.0.16.128',
+			'db171' => '10.0.17.119',
+			'db181' => '10.0.18.102',
+		],
+		'externalLoads' => [
+			'echo' => [
+				/** where the metawiki database is located */
+				'db171' => 0,
+			],
+		],
+		'readOnlyBySection' => [
+			// 'DEFAULT' => 'Maintenance is in progress. Please try again in a few minutes.',
+			// 'c1' => 'Maintenance is in progress. Please try again in a few minutes.',
+			// 'c2' => 'Maintenance is in progress. Please try again in a few minutes.',
+			// 'c3' => 'Maintenance is in progress. Please try again in a few minutes.',
+			// 'c4' => 'Maintenance is in progress. Please try again in a few minutes.',
+			// 's1' => 'Maintenance is in progress. Please try again in a few minutes.',
+		],
+	];
 }
 
-$wgLBFactoryConf = [
-	'class' => \Wikimedia\Rdbms\LBFactoryMulti::class,
-	'secret' => $wgSecretKey,
-	'sectionsByDB' => $wi->wikiDBClusters,
-	'sectionLoads' => [
-		'DEFAULT' => [
-			'db131' => 0,
-		],
-		'c1' => [
-			'db131' => 0,
-		],
-		'c2' => [
-			'db101' => 0,
-		],
-		'c3' => [
-			'db142' => 0,
-		],
-		'c4' => [
-			'db121' => 0,
-		],
-		'c5' => [
-			'db131' => 0,
-		],
-	],
-	'serverTemplate' => [
-		'dbname' => $wgDBname,
-		'user' => $wgDBuser,
-		'password' => $wgDBpassword,
-		'type' => 'mysql',
-		'ssl' => $wmgDBUseSSL,
-		'flags' => DBO_DEFAULT | ( $wgCommandLineMode ? DBO_DEBUG : 0 ),
-		'variables' => [
-			// https://mariadb.com/docs/reference/mdb/system-variables/innodb_lock_wait_timeout
-			'innodb_lock_wait_timeout' => 15,
-		],
-		/**
-		 * MediaWiki checks if the certificate presented by MariaDB is signed
-		 * by the certificate authority listed in 'sslCAFile'. In emergencies
-		 * this could be set to /etc/ssl/certs/ca-certificates.crt (all trusted
-		 * CAs), but setting this to one CA reduces attack vector and CAs
-		 * to dig through when checking the certificate provided by MariaDB.
-		 */
-		'sslCAFile' => '/etc/ssl/certs/Sectigo.crt',
-	],
-	'hostsByName' => [
-		'db101' => $wmgDB101Hostname,
-		'db121' => $wmgDB121Hostname,
-		'db131' => $wmgDB131Hostname,
-		'db142' => $wmgDB142Hostname,
-	],
-	'externalLoads' => [
-		'beta' => [
-			/** where the metawikibeta database is located */
-			'db121' => 0,
-		],
-		'echo' => [
-			/** where the metawiki database is located */
-			'db131' => 0,
-		],
-	],
-	'readOnlyBySection' => !in_array( wfHostname(), $scsvg ) ? [
-		'DEFAULT' => 'DC Switchover in progress. Please try again in a few minutes.',
-		'c1' => 'DC Switchover in progress. Please try again in a few minutes.',
-		'c2' => 'DC Switchover in progress. Please try again in a few minutes.',
-		'c3' => 'DC Switchover in progress. Please try again in a few minutes.',
-		'c4' => 'DC Switchover in progress. Please try again in a few minutes.',
-		'c5' => 'DC Switchover in progress. Please try again in a few minutes.',
-	] : [],
-];
-
+$wgLBFactoryConf['loadMonitor']['class'] = '\Wikimedia\Rdbms\LoadMonitor';
 // Disable LoadMonitor in CLI, it doesn't provide much value in CLI.
 if ( PHP_SAPI === 'cli' ) {
-	$wgLBFactoryConf['loadMonitorClass'] = '\Wikimedia\Rdbms\LoadMonitorNull';
+	$wgLBFactoryConf['loadMonitor']['class'] = '\Wikimedia\Rdbms\LoadMonitorNull';
 }
+
+$wgLBFactoryConf['loadMonitor']['maxConnCount'] = 350;
 
 // Disallow web request database transactions that are slower than 10 seconds
 $wgMaxUserDBWriteDuration = 10;
@@ -97,8 +111,5 @@ $wgMaxUserDBWriteDuration = 10;
 $wgMaxExecutionTimeForExpensiveQueries = 30000;
 
 $wgMiserMode = true;
-
-// Compress revisions
-$wgCompressRevisions = true;
 
 $wgSQLMode = null;
