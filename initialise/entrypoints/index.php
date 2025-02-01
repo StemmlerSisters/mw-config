@@ -1,5 +1,11 @@
 <?php
 
+use MediaWiki\Actions\ActionEntryPoint;
+use MediaWiki\Context\RequestContext;
+use MediaWiki\EntryPointEnvironment;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
+
 define( 'MW_ENTRY_POINT', 'index' );
 
 require_once '/srv/mediawiki/config/initialise/MirahezeFunctions.php';
@@ -16,7 +22,13 @@ if ( $wgArticlePath === '/$1' && str_contains( strtoupper( $_SERVER['REQUEST_URI
 }
 
 // $wgArticlePath === '/$1' ||
-if ( ( $wgMainPageIsDomainRoot && $_SERVER['REQUEST_URI'] !== '/' ) ) {
+// T12263: Avoid redirecting main page to domain root if a POST is being done.
+// This is because the POST is likely an action to be done (such as editing the
+// page), and a 301 redirect would cause the HTTP client to potentially switch to
+// a GET request and discard the request body.
+// We could switch to a 308, which is guaranteed to continue using POST, but that
+// just adds an extra, unnecessary redirect.
+if ( ( $wgMainPageIsDomainRoot && $_SERVER['REQUEST_URI'] !== '/' && $_SERVER['REQUEST_METHOD'] !== 'POST' ) ) {
 	// Try to redirect the main page to domain root if using $wgMainPageIsDomainRoot
 	$title = '';
 	if ( isset( $_SERVER['REQUEST_URI'] ) ) {
@@ -47,7 +59,7 @@ if ( ( $wgMainPageIsDomainRoot && $_SERVER['REQUEST_URI'] !== '/' ) ) {
 	/* if ( mb_strtolower( mb_substr( $title, 0, 1 ) ) === mb_substr( $title, 0, 1 ) ) {
 		$currentTitle = Title::newFromText( $title );
 		if ( $currentTitle ) {
-			$namespaceInfo = MediaWiki\MediaWikiServices::getInstance()->getNamespaceInfo();
+			$namespaceInfo = MediaWikiServices::getInstance()->getNamespaceInfo();
 			if ( $namespaceInfo->isCapitalized( $currentTitle->getNamespace() ) ) {
 				$decodedQueryString = urldecode( $_SERVER['QUERY_STRING'] ?? '' );
 				parse_str( $decodedQueryString, $queryParameters );
@@ -79,9 +91,8 @@ if ( ( $wgMainPageIsDomainRoot && $_SERVER['REQUEST_URI'] !== '/' ) ) {
 require_once MirahezeFunctions::getMediaWiki( 'includes/PHPVersionCheck.php' );
 wfEntryPointCheck( 'html', dirname( $_SERVER['SCRIPT_NAME'] ) );
 
-wfIndexMain();
-
-function wfIndexMain() {
-	$mediaWiki = new MediaWiki();
-	$mediaWiki->run();
-}
+( new ActionEntryPoint(
+	RequestContext::getMain(),
+	new EntryPointEnvironment(),
+	MediaWikiServices::getInstance()
+) )->run();

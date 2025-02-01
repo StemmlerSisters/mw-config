@@ -4,6 +4,7 @@ require_once '/srv/mediawiki/config/initialise/MirahezeFunctions.php';
 require MirahezeFunctions::getMediaWiki( 'includes/WebStart.php' );
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
 
 $uri = strtok( $_SERVER['REQUEST_URI'], '?' );
 $queryString = $_SERVER['QUERY_STRING'] ?? '';
@@ -14,6 +15,12 @@ $decodedUri = str_replace( '/index.php', '', $decodedUri );
 
 $articlePath = str_replace( '/$1', '', $wgArticlePath );
 $redirectUrl = ( $articlePath ?: '/' ) . $decodedUri;
+// T13127: $decodedUri can be empty (e.g. /w/index.php?any=query), so append /
+// if that is the case in order to prevent a redirect at best, and the query
+// parameters being ignored in the redirect if worse.
+if ( $decodedUri === '' ) {
+	$redirectUrl .= '/';
+}
 
 if ( $decodedUri && !str_contains( $queryString, 'title' ) ) {
 	$path = parse_url( $decodedUri, PHP_URL_PATH );
@@ -26,29 +33,39 @@ if ( $decodedUri && !str_contains( $queryString, 'title' ) ) {
 	$queryParameters['title'] = $title;
 }
 
-if ( $wgArticlePath === '/wiki/$1' && isset( $_GET['diff'] ) ) {
-	if ( !$decodedUri ) {
-		$redirectUrl .= '/';
-	}
+if ( $wgArticlePath === '/wiki/$1' && ( isset( $_GET['diff'] ) || isset( $_GET['oldid'] ) ) ) {
 	$queryParameters ??= [];
-	$queryParameters['diff'] = $_GET['diff'];
+	if ( isset( $_GET['diff'] ) ) {
+		$queryParameters['diff'] = $_GET['diff'];
+	}
+
 	if ( isset( $_GET['oldid'] ) ) {
 		$queryParameters['oldid'] = $_GET['oldid'];
+	}
+
+	if ( isset( $_GET['rcid'] ) ) {
+		$queryParameters['rcid'] = $_GET['rcid'];
+	}
+
+	if ( isset( $_GET['title'] ) ) {
+		$queryParameters['title'] = $_GET['title'];
 	}
 }
 
 if ( $queryString || isset( $queryParameters ) ) {
 	if ( !isset( $queryParameters ) ) {
-		// We don't want to decode %26 into & or it breaks things such as search functionality
+		// We don't want to decode %26 into & or %2B into + or it breaks things such as search functionality
 
 		// Replace %26 with a temporary placeholder
-		$queryString = str_replace( '%26', '##TEMP##', $queryString );
+		$queryString = str_replace( '%26', '##TEMP1##', $queryString );
+		$queryString = str_replace( '%2B', '##TEMP2##', $queryString );
 
 		// Decode the URL
 		$decodedQueryString = urldecode( $queryString );
 
 		// Restore the original %26
-		$decodedQueryString = str_replace( '##TEMP##', '%26', $decodedQueryString );
+		$decodedQueryString = str_replace( '##TEMP1##', '%26', $decodedQueryString );
+		$decodedQueryString = str_replace( '##TEMP2##', '%2B', $decodedQueryString );
 
 		parse_str( $decodedQueryString, $queryParameters );
 	}

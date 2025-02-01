@@ -14,25 +14,29 @@ wfLoadExtensions( [
 	'DiscordNotifications',
 	'DismissableSiteNotice',
 	'Echo',
-	// Required by CentralNotice
+	'EventBus',
 	'EventLogging',
+	'EventStreamConfig',
 	'GlobalCssJs',
 	'GlobalNewFiles',
+	'ImportDump',
 	'Interwiki',
 	'InterwikiDispatcher',
 	'IPInfo',
 	'LoginNotify',
 	'ManageWiki',
 	'MatomoAnalytics',
-	'MessageCachePerformance',
 	'MirahezeMagic',
 	'MobileDetect',
+	'MultiPurge',
 	'NativeSvgHandler',
 	'Nuke',
 	'OATHAuth',
 	'OAuth',
 	'ParserFunctions',
+	'ParserMigration',
 	'QuickInstantCommons',
+	// 'ReportIncident',
 	'RottenLinks',
 	'Scribunto',
 	// 'SecureLinkFixer',
@@ -45,14 +49,5 @@ wfLoadExtensions( [
 	'WikiEditor',
 	'cldr',
 ] );
-
-if ( $wi->version >= 1.41 ) {
-	wfLoadExtension( 'ParserMigration' );
-}
-
-// Renameuser is bundled into core from 1.40+
-if ( $wi->version < 1.40 ) {
-	wfLoadExtension( 'Renameuser' );
-}
 
 wfLoadExtension( 'Parsoid', "$IP/vendor/wikimedia/parsoid/extension.json" );

@@ -6,8 +6,8 @@ $wgFileBackends[] = [
 	// This is the prefix for the container that it starts with.
 	'wikiId'             => "miraheze-$wgDBname",
 	'lockManager'        => 'redisLockManager',
-	'swiftAuthUrl'       => 'https://swift-lb.miraheze.org/auth',
-	'swiftStorageUrl'    => 'https://swift-lb.miraheze.org/v1/AUTH_mw',
+	'swiftAuthUrl'       => 'https://swift-lb.wikitide.net/auth',
+	'swiftStorageUrl'    => 'https://swift-lb.wikitide.net/v1/AUTH_mw',
 	'swiftUser'          => 'mw:media',
 	'swiftKey'           => $wmgSwiftPassword,
 	'swiftTempUrlKey'    => '',
@@ -20,15 +20,10 @@ $wgFileBackends[] = [
 	'reqTimeout'          => 900,
 ];
 
-$beta = preg_match( '/^(.*)\.mirabeta\.org$/', $wi->server );
-$scsvg = [ 'mw131', 'mw132', 'mw133', 'mw134', 'mw141', 'mw142', 'mw143', 'mwtask141' ];
-if ( in_array( wfHostname(), $scsvg ) ) {
-	$redisServerIP = '[2a10:6740::6:306]:6379';
-} else {
-	$redisServerIP = $beta ?
-		'[2602:294:0:c8::109]:6379' :
-		'[2602:294:0:b23::102]:6379';
-}
+$beta = preg_match( '/^(.*)\.(mirabeta|nexttide)\.org$/', $wi->server );
+$redisServerIP = $beta ?
+	'10.0.15.118:6379' :
+	'10.0.15.142:6379';
 
 $wgLockManagers[] = [
 	'name' => 'redisLockManager',
@@ -48,8 +43,8 @@ $wgLockManagers[] = [
 
 $wgGenerateThumbnailOnParse = false;
 $wgUploadThumbnailRenderMethod = 'http';
-$wgUploadThumbnailRenderHttpCustomHost = 'static.miraheze.org';
-$wgUploadThumbnailRenderHttpCustomDomain = 'swift-lb.miraheze.org';
+$wgUploadThumbnailRenderHttpCustomHost = 'static.wikitide.net';
+$wgUploadThumbnailRenderHttpCustomDomain = 'swift-lb.wikitide.net';
 
 $wgThumbnailBuckets = [ 1920 ];
 $wgThumbnailMinimumBucketDistance = 100;
@@ -65,8 +60,16 @@ if ( $cwPrivate ) {
 		'/awards/' => 'mwstore://miraheze-swift/awards/',
 		'/dumps/' => 'mwstore://miraheze-swift/dumps-backup/',
 		'/score/' => 'mwstore://miraheze-swift/score-render/',
+		'/phonos-render/' => 'mwstore://miraheze-swift/phonos-render/',
 		'/timeline/' => 'mwstore://miraheze-swift/timeline-render/',
+		'/upv2avatars/' => 'mwstore://miraheze-swift/upv2avatars/',
 	];
+}
+
+if ( $wgDBname === 'hololivewiki' ) {
+	// default: 3600 * 6 (6 hours)
+	// hololivewiki: 86400 * 7 (7 days) (T11973)
+	$wgUploadStashMaxAge = 86400 * 7;
 }
 
 $wgLocalFileRepo = [
